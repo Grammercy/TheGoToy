@@ -4,15 +4,37 @@ import (
   "fmt"
 )
 
-type screen struct {
+type Board struct {
+  arr [][]Particle
 }
 
-func (screen *screen) passGravity
+type Particle struct {
+  isEmpty bool
+  name string
+  xVelocity float64
+  yVelocity float64
+}
 
 func main() {
-  powder := Powder{Particle{"Sand", 0.0, 0.0}, Velocity{0.0, 0.0}}
-  for i := 0; i < 10; i++ {
-    powder.passGravity()
-    fmt.Println(powder)
+  var board Board
+  board.arr = make([][]Particle, 20)
+  for i := range board.arr {
+    board.arr[i] = make([]Particle, 20)
   }
+  fmt.Println(board)
+}
+
+func (board Board) String() string {
+  str := ""
+  for i := range board.arr {
+    for j := range board.arr {
+      if !board.arr[i][j].isEmpty {
+        str += " "
+      } else {
+        str += "󰝤 "
+      }
+    }
+    str += "\n"
+  }
+  return str
 }
