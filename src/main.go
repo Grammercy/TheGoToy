@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
+	// "runtime"
+	"sync"
+	"time"
 )
 
 type Board struct {
@@ -11,42 +14,56 @@ type Board struct {
 
 type Particle struct {
 	isFull    bool
-	name      string
+	partType  uint64
 	xVelocity float64
 	yVelocity float64
 }
 
 const (
-	boardWidth      = 200
-	boardHeight     = 100
-	borderWidth     = 1
+	boardWidth      = 604
+	boardHeight     = 376
+	borderWidth     = 0
 	windowWidth     = 2560
 	windowHeight    = 1600
 	gravityConstant = 0.2
 )
 
+const (
+  POWDER = 100
+)
+
 var gridSize int = determineSquareSize(windowWidth, windowHeight, boardWidth, boardHeight)
 
 func main() {
+	start := time.Now()
 	var board Board
 	board.setupBoard()
 	running := true
 	paused := false
+	averageFrameTime := time.Since(start)
+	// numFrames := 0
+	var boardSurface *sdl.Surface
 
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
 	defer sdl.Quit()
-	window, renderer, err := sdl.CreateWindowAndRenderer(windowWidth, windowHeight, sdl.WINDOW_SHOWN)
+	window, renderer, err := sdl.CreateWindowAndRenderer(windowWidth, windowHeight, sdl.RENDERER_ACCELERATED)
 	if err != nil {
 		panic(err)
 	}
 	defer window.Destroy()
 	defer renderer.Destroy()
-	renderer.SetDrawColor(0, 0, 0, 255)
-	renderer.Clear()
+
+	boardSurface, err = sdl.CreateRGBSurface(0, windowWidth, windowHeight, 32, 0, 0, 0, 0)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Time to setup was " + time.Since(start).String())
 
 	for running {
+		startOfFrameTime := time.Now()
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
 			case *sdl.QuitEvent:
@@ -68,38 +85,77 @@ func main() {
 			row := len(board.arr) - (int(y) / gridSize)
 			if row >= 0 && col >= 0 && col < len(board.arr[0]) && row < len(board.arr) {
 				if !board.arr[row][col].isFull {
-					board.arr[row][col] = Particle{isFull: true}
+          board.arr[row][col] = Particle{isFull: true, partType: POWDER}
 				}
 			}
 		}
-
+		// timeToHandleEvents := time.Since(startOfFrameTime)
+		// _ = timeToHandleEvents
+		// startOfCalcTime := time.Now()
 		if !paused {
 			board.passGravity()
+      board.movePowders()
 			board.updatePositions()
 		}
-		board.render(renderer)
+		// startOfRenderTime := time.Now()
+		board.render(renderer, boardSurface)
 		renderer.Present()
-		sdl.Delay(16)
+		frameTime := time.Since(startOfFrameTime)
+		averageFrameTime = averageFrameTime*time.Duration(199) + frameTime
+		averageFrameTime /= time.Duration(200)
+		sdl.Delay(0)
 	}
+	fmt.Println("Average frame time was " + averageFrameTime.String())
 	fmt.Println("done")
 }
 
-func (board Board) render(renderer *sdl.Renderer) {
+func (board Board) render(renderer *sdl.Renderer, boardSurface *sdl.Surface) {
+	var wg sync.WaitGroup
+	length := len(board.arr)
 	for i := range board.arr {
-		for j := range board.arr[i] {
-			x := int32(j * gridSize)
-			y := int32((len(board.arr) - i) * gridSize)
-			renderer.SetDrawColor(176, 176, 176, 255)
-			renderer.FillRect(&sdl.Rect{X: x, Y: y, W: int32(gridSize), H: int32(gridSize)})
+		wg.Add(1)
+		go func() {
+			var color sdl.Color
+			defer wg.Done()
+			for j := range board.arr[i] {
+				x := int32(j * gridSize)
+				y := int32((length - i) * gridSize)
+				if board.arr[i][j].isFull {
+					color = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+				} else {
+					color = sdl.Color{R: 255, G: 20, B: 20, A: 20}
+				}
 
-			if board.arr[i][j].isFull {
-				renderer.SetDrawColor(255, 255, 255, 255)
-			} else {
-				renderer.SetDrawColor(0, 0, 0, 255)
+				boardSurface.FillRect(&sdl.Rect{X: x + borderWidth, Y: y + borderWidth, W: int32(gridSize) - borderWidth, H: int32(gridSize) - borderWidth}, color.Uint32())
 			}
-			renderer.FillRect(&sdl.Rect{X: x + borderWidth, Y: y + borderWidth, W: int32(gridSize) - borderWidth, H: int32(gridSize) - borderWidth})
-		}
+		}()
 	}
+	wg.Wait()
+	boardTexture, err := renderer.CreateTextureFromSurface(boardSurface)
+	defer boardTexture.Destroy()
+	if err != nil {
+		panic(err)
+	}
+	renderer.Copy(boardTexture, nil, nil)
+}
+
+func (board *Board) movePowders() {
+  for i := range board.arr {
+    if i == 0 {
+      continue
+    }
+    for j := range board.arr[i] {
+      if board.arr[i][j].partType == POWDER && board.arr[i][j].isFull {
+        if board.arr[i-1][j].isFull && board.arr[i-1][j].partType == POWDER {
+          if j-1 >= 0 && !board.arr[i-1][j-1].isFull {
+            board.arr[i-1][j-1], board.arr[i][j] = board.arr[i][j], board.arr[i-1][j-1]
+          } else if j + 1 < len(board.arr[i]) && !board.arr[i-1][j+1].isFull {
+            board.arr[i-1][j+1], board.arr[i][j] = board.arr[i][j], board.arr[i-1][j+1]
+          }
+        }
+      }
+    }
+  }
 }
 
 func (board *Board) updatePositions() {
