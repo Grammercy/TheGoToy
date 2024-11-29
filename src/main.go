@@ -17,11 +17,12 @@ type Particle struct {
 }
 
 const (
-  boardWidth   = 200 
-  boardHeight  = 100
-	borderWidth  = 1
-	windowWidth  = 2560
-	windowHeight = 1600
+	boardWidth      = 200
+	boardHeight     = 100
+	borderWidth     = 1
+	windowWidth     = 2560
+	windowHeight    = 1600
+	gravityConstant = 0.2
 )
 
 var gridSize int = determineSquareSize(windowWidth, windowHeight, boardWidth, boardHeight)
@@ -30,7 +31,7 @@ func main() {
 	var board Board
 	board.setupBoard()
 	running := true
-  paused := false
+	paused := false
 
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
@@ -44,37 +45,38 @@ func main() {
 	defer renderer.Destroy()
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
-	
 
-  for running {
+	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-      switch e := event.(type) {
+			switch e := event.(type) {
 			case *sdl.QuitEvent:
 				running = false
-      case *sdl.KeyboardEvent:
-        if e.Type == sdl.KEYDOWN{
-          switch e.Keysym.Sym {
-          case sdl.K_ESCAPE:
-            running = false
-          case sdl.K_SPACE:
-            paused = !paused
-          }
-        }
+			case *sdl.KeyboardEvent:
+				if e.Type == sdl.KEYDOWN {
+					switch e.Keysym.Sym {
+					case sdl.K_ESCAPE:
+						running = false
+					case sdl.K_SPACE:
+						paused = !paused
+					}
+				}
 			}
 		}
-    x, y, mouseHeld := sdl.GetMouseState()
-    if mouseHeld != 0 {
-      col := int(x) / gridSize
-      row := len(board.arr) - (int(y) / gridSize)
-      if row >= 0 && col >= 0 && col < len(board.arr[0]) && row < len(board.arr) {
-        board.arr[row][col] = Particle{isFull : true}
-      }
-    }
+		x, y, mouseHeld := sdl.GetMouseState()
+		if mouseHeld != 0 {
+			col := int(x) / gridSize
+			row := len(board.arr) - (int(y) / gridSize)
+			if row >= 0 && col >= 0 && col < len(board.arr[0]) && row < len(board.arr) {
+				if !board.arr[row][col].isFull {
+					board.arr[row][col] = Particle{isFull: true}
+				}
+			}
+		}
 
-    if !paused {
-		  board.passGravity()
-		  board.updatePositions()
-    }
+		if !paused {
+			board.passGravity()
+			board.updatePositions()
+		}
 		board.render(renderer)
 		renderer.Present()
 		sdl.Delay(16)
@@ -138,7 +140,7 @@ func (board *Board) passGravity() {
 }
 
 func (particle *Particle) passGravity() {
-	particle.yVelocity -= 0.5
+	particle.yVelocity -= gravityConstant
 }
 
 func (particle Particle) clone() Particle {
