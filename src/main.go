@@ -42,15 +42,18 @@ func main() {
   running := true
   renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
-  board.arr[3][3].isFull = true
+  board.arr[19][0].isFull = true
+  board.arr[19][0].yVelocity = -1.5
   for running {
-    board.render(renderer)
     for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
 			}
 		}
+
+    board.updatePositions()
+    board.render(renderer)
     renderer.Present()
     sdl.Delay(16)
   }
@@ -61,7 +64,7 @@ func (board Board) render (renderer *sdl.Renderer) {
   for i := range board.arr {
     for j := range board.arr[i] {
       x := int32(j * gridSize)
-      y := int32(i * gridSize)
+      y := int32((len(board.arr)-i) * gridSize)
       renderer.SetDrawColor(176, 176, 176, 255)
       renderer.FillRect(&sdl.Rect{X: x, Y: y, W: int32(gridSize), H: int32(gridSize)})
 
@@ -73,6 +76,41 @@ func (board Board) render (renderer *sdl.Renderer) {
       renderer.FillRect(&sdl.Rect{X: x + borderWidth, Y: y + borderWidth, W: int32(gridSize) - borderWidth, H: int32(gridSize) - borderWidth})
     }
   }
+}
+
+func (board *Board) updatePositions () {
+  for i := range board.arr {
+    for j := range board.arr[i] {
+      if !board.arr[i][j].isFull {
+        continue
+      }
+      adjustPostition(board, i, j)
+    }
+  }
+}
+
+func adjustPostition(board *Board, i, j int) {
+  if int(board.arr[i][j].xVelocity) == 0 && int(board.arr[i][j].yVelocity) == 0 {
+    return
+  }
+  if j + int(board.arr[i][j].xVelocity) >= 0 && j + int(board.arr[i][j].xVelocity) < len(board.arr[i]) && i + int(board.arr[i][j].yVelocity) >= 0 && i + int(board.arr[i][j].yVelocity) < len(board.arr) {
+    if !board.arr[i + int(board.arr[i][j].yVelocity)][j + int(board.arr[i][j].xVelocity)].isFull {
+      board.arr[i + int(board.arr[i][j].yVelocity)][j + int(board.arr[i][j].xVelocity)] = board.arr[i][j].clone()
+      board.arr[i][j] = Particle{}
+      return
+    }
+    board.arr[i][j].xVelocity *= 0.9
+    board.arr[i][j].yVelocity *= 0.9
+    adjustPostition(board, i, j)
+  }
+}
+
+func (particle *Particle) passGravity () {
+  particle.yVelocity -= 0.5
+}
+
+func (particle Particle) clone () Particle{
+  return particle
 }
 
 func determineSquareSize(totalX, totalY, gridX, gridY int) int {
