@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
-	// "runtime"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -20,11 +20,11 @@ type Particle struct {
 }
 
 const (
-	boardWidth      = 604
-	boardHeight     = 376
+	boardWidth      = 20//604
+	boardHeight     = 30//376
 	borderWidth     = 0
-	windowWidth     = 2560
-	windowHeight    = 1600
+	windowWidth     = 2550
+	windowHeight    = 1550
 	gravityConstant = 0.2
 )
 
@@ -82,7 +82,7 @@ func main() {
 		x, y, mouseHeld := sdl.GetMouseState()
 		if mouseHeld != 0 {
 			col := int(x) / gridSize
-			row := len(board.arr) - (int(y) / gridSize)
+			row := len(board.arr) - (int(y) / gridSize) - 1
 			if row >= 0 && col >= 0 && col < len(board.arr[0]) && row < len(board.arr) {
 				if !board.arr[row][col].isFull {
           board.arr[row][col] = Particle{isFull: true, partType: POWDER}
@@ -103,7 +103,8 @@ func main() {
 		frameTime := time.Since(startOfFrameTime)
 		averageFrameTime = averageFrameTime*time.Duration(199) + frameTime
 		averageFrameTime /= time.Duration(200)
-		sdl.Delay(0)
+		runtime.GC()
+    time.Sleep(16 * time.Millisecond - time.Since(startOfFrameTime))
 	}
 	fmt.Println("Average frame time was " + averageFrameTime.String())
 	fmt.Println("done")
@@ -119,7 +120,7 @@ func (board Board) render(renderer *sdl.Renderer, boardSurface *sdl.Surface) {
 			defer wg.Done()
 			for j := range board.arr[i] {
 				x := int32(j * gridSize)
-				y := int32((length - i) * gridSize)
+				y := int32((length - i) * gridSize - gridSize) 
 				if board.arr[i][j].isFull {
 					color = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 				} else {
