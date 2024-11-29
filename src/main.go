@@ -40,17 +40,37 @@ func main() {
 	defer window.Destroy()
 	defer renderer.Destroy()
 	running := true
+  mouseHeld := false
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 	board.arr[10][0].isFull = true
 	board.arr[10][0].yVelocity = 3
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
+      switch e := event.(type) {
 			case *sdl.QuitEvent:
 				running = false
+      case *sdl.MouseButtonEvent:
+        if e.Type == sdl.MOUSEBUTTONDOWN {
+          if e.Button == sdl.BUTTON_LEFT {
+            mouseHeld = true
+        }
+        if e.Type == sdl.MOUSEBUTTONUP {
+          if e.Button == sdl.BUTTON_LEFT {
+            mouseHeld = false
+          }
+        }
 			}
 		}
+    if mouseHeld {
+      x, y, _ := sdl.GetMouseState()
+      col := int(x) / gridSize
+      row := len(board.arr) - (int(y) / gridSize)
+        if row >= 0 && col >= 0 && col < len(board.arr[0]) && row < len(board.arr) {
+          board.arr[row][col] = Particle{isFull : true}
+        }
+      }
+    }
 		board.passGravity()
 		board.updatePositions()
 		board.render(renderer)
